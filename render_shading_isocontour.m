@@ -11,7 +11,7 @@ function [I_test,I_raw,D_source,Lj,P_camera] = render_shading_isocontour(h,l,opt
 		options.Light struct = struct()
 		options.Renderer struct = struct()
 		options.LightParameters (:,:) double = [0;0.5;9;0.6]
-		options.ScatteringParameters (:,:) double = [0,1.0]
+		options.ScatteringParameters (:,:) double = [0,1.0,1]
 		options.CameraIntrinsic (3,3) double = eye(3)
 		options.CameraResponseFcn (1,1) function_handle = @(x) camera_response(x)
 		options.InverseCameraResponseFcn (1,1) function_handle = @(x) inv_camera_response(x)
@@ -98,6 +98,7 @@ function [I_test,I_raw,D_source,Lj,P_camera] = render_shading_isocontour(h,l,opt
 	% P are the 3D points of intersection in camera frame
 	% N_p are the normals to the surface in thoses points
 	% inter are booleans indicating visibility of the points
+	coef = 1;
 	if strcmp(options.Surface,'Plane')
 		N = options.SurfaceParameters(1:3);
 		d = options.SurfaceParameters(4);
@@ -105,6 +106,11 @@ function [I_test,I_raw,D_source,Lj,P_camera] = render_shading_isocontour(h,l,opt
 		if strcmp(options.Scattering,'Phong')
 			kd = options.ScatteringParameters(1)*ones(1,h*l);
 			ks = options.ScatteringParameters(2)*ones(1,h*l);
+			if length(options.ScatteringParameters)>2
+				coef = options.ScatteringParameters(3);
+			else
+				coef = 1;
+			end
 		end
 	elseif strcmp(options.Surface, 'Meshes')
 		if strcmp(options.Scattering,'Phong')
@@ -153,7 +159,7 @@ function [I_test,I_raw,D_source,Lj,P_camera] = render_shading_isocontour(h,l,opt
 		S_X = (S-P)./sqrt(dot(S-P,S-P));
 		R_X = (R-P)./sqrt(dot(R-P,R-P));
 		O_X = (O-P)./sqrt(dot(O-P,O-P));
-		L_P = inter.*(kd.*Lj.*abs(dot(S_X,N_p))+ks.*Lj.*max(0,(-dot(R_X,O_X))));
+		L_P = inter.*(kd.*Lj.*abs(dot(S_X,N_p))+ks.*Lj.*power(max(0,-dot(R_X,O_X)),coef));
 		% Create the image
 		I_P = reshape(camResponseFcn(L_P),h,l);
 		I = zeros(h,l,3);
